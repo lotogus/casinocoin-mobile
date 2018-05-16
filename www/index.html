@@ -1421,23 +1421,37 @@ function runPinPad(tab, validationfunc, successfunc, failurefunc) {
 **/
 function doShowLogin() {
 	if (debug) console.log("doShowLogin");
-	runPinPad("#tablogin", function(pin) {
-		validatePin(pin, function() {
-			$("#btnbootstrapsequence").hide();
-			showTab("#tabaccounts");
-		}, function() {
-			$("#btnbootstrapsequence").hide();
-                        setTimeout(function() {
-                                doShakeAndClearPinPad( function() { });
-                        }, 0);
-		}, function() {
-			$("#btnbootstrapsequence").hide();
-			showTab("#tablicense");
+
+	Fingerprint.isAvailable(isAvailableSuccess, isAvailableError);
+ 
+    function isAvailableSuccess(result) {
+      /*
+      result depends on device and os. 
+      iPhone X will return 'face' other Android or iOS devices will return 'finger'  
+      */
+      alert("Fingerprint available");
+    }
+ 
+    function isAvailableError(message) {
+		runPinPad("#tablogin", function(pin) {
+			validatePin(pin, function() {
+				$("#btnbootstrapsequence").hide();
+				showTab("#tabaccounts");
+			}, function() {
+				$("#btnbootstrapsequence").hide();
+							setTimeout(function() {
+									doShakeAndClearPinPad( function() { });
+							}, 0);
+			}, function() {
+				$("#btnbootstrapsequence").hide();
+				showTab("#tablicense");
+			});
+			return true;
+		}, function(pin) { // we don't use the success and failure functions in this use case
+		}, function(pin) { // because the validation function is async, so we piggyback it above
 		});
-		return true;
-	}, function(pin) { // we don't use the success and failure functions in this use case
-	}, function(pin) { // because the validation function is async, so we piggyback it above
-	});
+	}
+
 }
 
 
