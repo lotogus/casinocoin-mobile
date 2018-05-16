@@ -1421,23 +1421,60 @@ function runPinPad(tab, validationfunc, successfunc, failurefunc) {
 **/
 function doShowLogin() {
 	if (debug) console.log("doShowLogin");
-	runPinPad("#tablogin", function(pin) {
-		validatePin(pin, function() {
-			$("#btnbootstrapsequence").hide();
-			showTab("#tabaccounts");
-		}, function() {
-			$("#btnbootstrapsequence").hide();
-                        setTimeout(function() {
-                                doShakeAndClearPinPad( function() { });
-                        }, 0);
-		}, function() {
-			$("#btnbootstrapsequence").hide();
-			showTab("#tablicense");
+
+	var decryptConfig = {
+		clientId: "myAppName",
+		username: "currentUser",
+		token: "base64encodedUserCredentials"
+	};
+	
+	FingerprintAuth.decrypt(decryptConfig, successCallback, errorCallback);
+	
+	function successCallback(result) {
+		console.log("successCallback(): " + JSON.stringify(result));
+		if (result.withFingerprint) {
+			console.log("Successful biometric authentication.");
+			if (result.password) {
+				console.log("Successfully decrypted credential token.");
+				validateFingerPin(result.password, function() {
+					$("#btnbootstrapsequence").hide();
+					showTab("#tabaccounts");
+				}, function() {
+					$("#btnbootstrapsequence").hide();
+								setTimeout(function() {
+										doShakeAndClearPinPad( function() { });
+								}, 0);
+				}, function() {
+					$("#btnbootstrapsequence").hide();
+					showTab("#tablicense");
+				});  
+			}
+		} else if (result.withBackup) {
+			errorCallback("Authenticated with backup password");
+		}
+	}
+
+	function errorCallback(error) {
+		console.log("FingerprintAuth Error: " + error);
+		runPinPad("#tablogin", function(pin) {
+			validatePin(pin, function() {
+				$("#btnbootstrapsequence").hide();
+				showTab("#tabaccounts");
+			}, function() {
+				$("#btnbootstrapsequence").hide();
+							setTimeout(function() {
+									doShakeAndClearPinPad( function() { });
+							}, 0);
+			}, function() {
+				$("#btnbootstrapsequence").hide();
+				showTab("#tablicense");
+			});
+			return true;
+		}, function(pin) { // we don't use the success and failure functions in this use case
+		}, function(pin) { // because the validation function is async, so we piggyback it above
 		});
-		return true;
-	}, function(pin) { // we don't use the success and failure functions in this use case
-	}, function(pin) { // because the validation function is async, so we piggyback it above
-	});
+	}
+
 }
 
 
@@ -2550,6 +2587,41 @@ function validatePin(pin, successfunc, failfunc, nopinsetfunc) {
 
 
 	db.get("pindata").then(f).catch(f);
+}
+
+function validateFingerPin(fingerpin, successfunc, failfunc, nopinsetfunc) {
+	var f = function(fingerpindata) { try {
+		if (fingerpindata.data == undefined || fingerpindata.data == "") {
+			// this means the app has never run before.
+			return nopinsetfunc();
+		} else {
+			fingerpindata = JSON.parse(fingerpindata.data);
+			var salt = fromhex_chksum(fingerpindata.salt);
+			var hash = tohex_chksum(sodium.crypto_shorthash(fingerpin, salt));
+			if (hash == fingerpindata.hash) 
+				return successfunc();
+			return failfunc();
+		} } catch(e) { handle_error(e); } };
+
+
+	db.get("fingerpindata").then(f).catch(f);
+	
+}
+
+function setFingerPin(fingerpin, successfunc, failfunc) {
+
+	var salt;
+	var fingerpindata = { salt: tohex_chksum(salt=sodium.randombytes_buf(sodium.crypto_shorthash_KEYBYTES)), 
+			hash: tohex_chksum(sodium.crypto_shorthash(fingerpin, salt)) };
+
+	db.upsert("fingerpindata", 
+		function(doc) { 
+		return { data: JSON.stringify(fingerpindata)}; }).then(
+		function(x){
+			successfunc();
+		}).catch(function(x){
+			failfunc();
+		});
 }
 
 function normalboot () {

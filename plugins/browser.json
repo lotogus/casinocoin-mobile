@@ -60,6 +60,9 @@
         },
         "cordova-android-support-gradle-release": {
             "PACKAGE_NAME": "org.casinocoin.mobile"
+        },
+        "cordova-plugin-android-fingerprint-auth": {
+            "PACKAGE_NAME": "org.casinocoin.mobile"
         }
     },
     "dependent_plugins": {
